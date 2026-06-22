@@ -12,13 +12,26 @@ The three core actions a user should be able to perform in PawPal+ are:
 
 3. **Generate and view a daily care plan** The user requests a schedule for the day. The system orders and fits tasks within the available time window, explains why it chose that arrangement (e.g., which high-priority items came first, which low-priority items were deferred), and presents the result in a clear timeline format.
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+The initial design has five classes:
+
+- **Pet** (dataclass) — holds static facts about the animal: name, species, breed, and age. It has no scheduling knowledge; it purely describes who is being cared for.
+- **Task** (dataclass) — represents a single care activity with a title, category, duration, and priority. It also tracks whether it recurs and how often. The scheduler stamps a `start_time` on it when building a plan.
+- **Owner** — holds the person's name, how many minutes they have available each day, any scheduling preferences, and a list of their pets. It is the source of the time budget the scheduler works within.
+- **Scheduler** — the core logic class. It takes an owner, a pet, and a list of tasks. It sorts tasks by priority, fits them into the available time window, stamps each with a start time, and stores the result as `scheduled_tasks`, `skipped_tasks`, and a `reasoning` string directly on itself — no separate output object needed.
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+Yes, changes were made after reviewing the skeleton against the UML and the README sample output:
+
+1. **Added `start_time` to `Task`** — The README shows output like `08:00 — Morning walk (30 min)`, which requires a timestamp per task. The original design had no field for this. Rather than introduce a separate `ScheduledEntry` wrapper class (unnecessary complexity), `start_time: Optional[str]` was added directly to the `Task` dataclass. The scheduler sets it when building a plan; it stays `None` for unscheduled tasks.
+
+2. **Added `pets: list[Pet]` and `add_pet()` to `Owner`** — The UML explicitly showed a 1-to-many relationship between `Owner` and `Pet`, but the original `Owner` class had no way to hold that list. This was a missing relationship caught during review.
+
+3. **Made `sort_tasks` accept an optional `tasks` parameter** — The original signature `sort_tasks(self)` always operated on `self.tasks`. During `generate_plan`, the scheduler may need to sort a filtered subset (e.g., only recurring tasks, or only tasks under 30 minutes). Accepting `tasks: Optional[list[Task]] = None` lets the method default to `self.tasks` but remain reusable mid-plan without a bottleneck.
+
+4. **Removed `DailyPlan`** — The project description defines exactly four classes (Task, Pet, Owner, Scheduler). `DailyPlan` was originally added as a return-value container for `generate_plan()`, but its only data (`scheduled_tasks`, `skipped_tasks`, `reasoning`) fits naturally as instance attributes on `Scheduler` itself. Removing it reduces a layer of indirection with no loss of functionality, since PawPal+ only ever shows one plan at a time.
+
+5. **Added `completed` to `Task`** — The project description explicitly lists "completion status" as a required field. This was missing from the skeleton and was added as `completed: bool = False`.
 
 ---
 

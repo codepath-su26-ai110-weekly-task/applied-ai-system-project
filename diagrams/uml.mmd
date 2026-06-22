@@ -1,21 +1,4 @@
 classDiagram
-    class Owner {
-        +str name
-        +int available_minutes
-        +dict preferences
-        +get_available_time() int
-        +update_preferences(prefs: dict) None
-    }
-
-    class Pet {
-        +str name
-        +str species
-        +str breed
-        +int age
-        +get_info() str
-        +summary() str
-    }
-
     class Task {
         +str title
         +str category
@@ -23,8 +6,34 @@ classDiagram
         +str priority
         +bool is_recurring
         +str frequency
+        +str start_time
+        +bool completed
         +is_high_priority() bool
         +to_dict() dict
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +int age
+        +list tasks
+        +add_task(task: Task) None
+        +remove_task(title: str) bool
+        +get_tasks() list
+        +get_info() str
+        +summary() str
+    }
+
+    class Owner {
+        +str name
+        +int available_minutes
+        +dict preferences
+        +list pets
+        +add_pet(pet: Pet) None
+        +get_available_time() int
+        +update_preferences(prefs: dict) None
+        +get_all_tasks() list
     }
 
     class Scheduler {
@@ -32,25 +41,17 @@ classDiagram
         +Pet pet
         +list tasks
         +int available_minutes
-        +generate_plan() DailyPlan
-        +sort_tasks() list
-        +filter_by_time() list
-        +explain_reasoning() str
-    }
-
-    class DailyPlan {
-        +str date
         +list scheduled_tasks
         +list skipped_tasks
         +str reasoning
-        +display() None
-        +total_duration() int
-        +get_summary() str
+        +generate_plan() None
+        +sort_tasks(tasks: list) list
+        +filter_by_time(tasks: list, remaining: int) list
+        +display_plan() None
     }
 
     Owner "1" --> "1..*" Pet : owns
+    Pet "1" --> "0..*" Task : has
     Scheduler --> Owner : uses
     Scheduler --> Pet : plans for
     Scheduler --> Task : schedules
-    Scheduler --> DailyPlan : produces
-    DailyPlan --> Task : contains

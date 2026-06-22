@@ -39,13 +39,15 @@ Yes, changes were made after reviewing the skeleton against the UML and the READ
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers two constraints: **time budget** (the owner's total available minutes per day) and **task priority** (high / medium / low). Within a priority tier, tasks are ordered shortest-first so the maximum number of tasks can fit before the budget runs out.
+
+Time was chosen as the primary hard constraint because it is the only truly fixed resource — an owner cannot create more minutes in the day. Priority is the secondary constraint because not all tasks are equally urgent (flea medicine cannot be skipped the way a play session can). Owner preferences (e.g., preferred walk times) are stored on the `Owner` object but are not yet used by the scheduler — they are the natural next constraint to add.
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+The conflict detector checks only for **exact time-window overlaps** between tasks that already have a `start_time` assigned. It does not account for travel time between tasks, preparation time, or "soft" conflicts like scheduling a long walk immediately before feeding (which a thoughtful owner might space out).
+
+This tradeoff is reasonable for this scenario because PawPal+ is a personal planning tool for a single household. The owner is already present for all tasks, so travel time is zero and the main risk is actual time overlap, not logistical sequencing. Detecting exact overlaps catches the most common mistake (accidentally assigning two tasks the same slot) without requiring the scheduler to know anything about the physical layout of the owner's home or routine.
 
 ---
 

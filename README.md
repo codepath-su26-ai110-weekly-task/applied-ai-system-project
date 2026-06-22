@@ -95,14 +95,13 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
-
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Sort by priority + duration | `Scheduler.sort_tasks()` | Primary key: priority tier (high → medium → low). Secondary key: shortest task first within each tier, maximising the number of tasks that fit the time budget. |
+| Sort by scheduled start time | `Scheduler.sort_by_time()` | Sorts tasks with an assigned `start_time` using their "HH:MM" string (lexicographic order equals chronological order). Tasks with no start time sort to the end via the sentinel `"99:99"`. |
+| Filter by completion status | `Scheduler.filter_tasks(completed=...)` | Pass `completed=False` for pending tasks, `completed=True` for done tasks, or omit to return all. Accepts an optional `tasks` list so it can operate on any subset. |
+| Conflict detection | `Scheduler.detect_conflicts()` | Compares every pair of scheduled tasks whose time windows overlap (`a.start < b.end AND b.start < a.end`). Returns warning strings rather than raising an exception, so the app stays running. |
+| Recurring tasks | `Task.mark_complete()` / `Scheduler.reschedule_recurring()` | Marking a recurring task complete returns a new `Task` copy with `completed=False`, `start_time=None`, and `due_date` advanced by 1 day (daily) or 7 days (weekly) via `timedelta`. `reschedule_recurring` calls this and immediately appends the new task to the pet's list. |
 
 ## 📸 Demo Walkthrough
 

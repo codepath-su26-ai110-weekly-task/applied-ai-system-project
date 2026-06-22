@@ -81,16 +81,52 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 
 ```bash
 # Run the full test suite:
-pytest
+python -m pytest
 
-# Run with coverage:
-pytest --cov
+# Run with verbose output:
+python -m pytest -v
 ```
 
-Sample test output:
+**What the tests cover** (`tests/test_pawpal.py` — 16 tests):
+
+| Group | Tests | What's verified |
+|---|---|---|
+| Task completion | 2 | `mark_complete()` flips `completed`; non-recurring returns `None` |
+| Sorting | 3 | `sort_by_time()` is chronological; untimed tasks sort last; `sort_tasks()` puts high priority first |
+| Recurrence | 3 | Daily/weekly next `due_date` is correct; `reschedule_recurring()` appends to pet's task list |
+| Conflict detection | 2 | Overlapping windows produce a warning; back-to-back tasks don't |
+| Schedule generation | 3 | Oversized tasks are skipped; empty pet produces empty schedule; all scheduled tasks get a `start_time` |
+| Filtering | 2 | `filter_tasks(completed=False)` returns only pending; no filter returns all |
+| Pet management | 1 | Adding tasks increments task count |
+
+**Confidence level: ★★★★☆**  
+The core scheduling loop, sorting, filtering, conflict detection, and recurrence are all covered by automated tests. The remaining gap is the Streamlit UI layer (`app.py`), which can only be verified by running the app in a browser.
+
+**Successful test run:**
 
 ```
-# Paste your pytest output here
+============================= test session starts ==============================
+platform darwin -- Python 3.12.6, pytest-9.0.2, pluggy-1.6.0
+collected 16 items
+
+tests/test_pawpal.py::test_mark_complete_sets_completed_true PASSED      [  6%]
+tests/test_pawpal.py::test_add_task_increases_pet_task_count PASSED      [ 12%]
+tests/test_pawpal.py::test_sort_by_time_returns_chronological_order PASSED [ 18%]
+tests/test_pawpal.py::test_sort_by_time_tasks_without_start_time_go_last PASSED [ 25%]
+tests/test_pawpal.py::test_sort_tasks_orders_high_before_low_priority PASSED [ 31%]
+tests/test_pawpal.py::test_recurring_daily_task_returns_next_occurrence PASSED [ 37%]
+tests/test_pawpal.py::test_recurring_weekly_task_due_in_seven_days PASSED [ 43%]
+tests/test_pawpal.py::test_non_recurring_task_returns_none_on_complete PASSED [ 50%]
+tests/test_pawpal.py::test_reschedule_recurring_appends_to_pet_task_list PASSED [ 56%]
+tests/test_pawpal.py::test_detect_conflicts_flags_overlapping_tasks PASSED [ 62%]
+tests/test_pawpal.py::test_detect_conflicts_no_warning_for_sequential_tasks PASSED [ 68%]
+tests/test_pawpal.py::test_generate_plan_skips_tasks_that_exceed_budget PASSED [ 75%]
+tests/test_pawpal.py::test_generate_plan_pet_with_no_tasks_produces_empty_schedule PASSED [ 81%]
+tests/test_pawpal.py::test_generate_plan_assigns_start_times_to_all_scheduled_tasks PASSED [ 87%]
+tests/test_pawpal.py::test_filter_tasks_returns_only_incomplete PASSED   [ 93%]
+tests/test_pawpal.py::test_filter_tasks_with_no_filter_returns_all PASSED [100%]
+
+============================== 16 passed in 0.02s ==============================
 ```
 
 ## 📐 Smarter Scheduling

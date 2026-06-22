@@ -12,6 +12,20 @@ A busy pet owner needs help staying consistent with pet care. They want an assis
 
 Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
 
+## ✨ Features
+
+| Feature | Description |
+|---|---|
+| **Owner & multi-pet setup** | Enter your name and daily time budget; register one or more pets with name, species, breed, and age |
+| **Task management** | Add care tasks (walk, feeding, meds, grooming, enrichment) with duration, priority, and recurrence settings |
+| **Priority-aware scheduling** | Tasks are sorted high → medium → low priority; within a tier, shortest tasks go first to maximise the number of tasks that fit the budget |
+| **Time-sorted display** | The generated schedule is presented in chronological order (`sort_by_time`) so it reads like a real daily plan |
+| **Skipped task reporting** | Any task that doesn't fit the time budget is listed separately with an explanation |
+| **Conflict detection** | If two tasks overlap in time, a warning is shown in the UI before the schedule table — the app never crashes |
+| **Recurring task automation** | Marking a daily task complete automatically creates the next occurrence due tomorrow; weekly tasks advance 7 days |
+| **Pending task filter** | After generating a schedule, an expandable panel shows only the incomplete tasks remaining for that pet |
+| **Scheduling reasoning** | An expandable "Why was the plan built this way?" panel explains every scheduling decision in plain English |
+
 ## What you will build
 
 Your final app should:
@@ -141,12 +155,75 @@ tests/test_pawpal.py::test_filter_tasks_with_no_filter_returns_all PASSED [100%]
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### Running the Streamlit app
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+```bash
+streamlit run app.py
+```
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+### Example workflow
+
+1. **Set up the owner** — Enter your name and how many minutes you have for pet care today (e.g., 90 min). Click **Save owner**.
+
+2. **Add your pets** — Fill in pet name, species, breed, and age. Click **Add pet**. Repeat for each pet. Your pets are listed below the form immediately.
+
+3. **Add tasks for each pet** — Select the pet from the dropdown, then enter a task title, category, duration, priority, and whether it recurs daily or weekly. Click **Add task**. The full task list for that pet is shown as a table.
+
+4. **Generate today's schedule** — Click the **Generate schedule** button. For each pet the app:
+   - Runs `Scheduler.generate_plan()` to sort tasks by priority and fit them in the time budget
+   - Calls `Scheduler.detect_conflicts()` — any overlapping time windows appear as **orange warnings** above the schedule table
+   - Displays tasks in chronological order (via `sort_by_time`) in a clean table with time, category, duration, and priority columns
+   - Shows skipped tasks in a red alert when the budget runs out
+   - Renders a progress bar showing minutes used vs. available
+   - Offers an expandable "Pending tasks" panel (filtered with `filter_tasks(completed=False)`) and an expandable reasoning panel
+
+5. **Inspect the reasoning** — Expand "Why was the plan built this way?" to see a plain-English log of every scheduling decision: which tasks were placed and when, which were skipped and why.
+
+### Key scheduler behaviors in action
+
+| Behavior | What you'll see in the UI |
+|---|---|
+| High-priority tasks always go first | Meds and feeding appear before enrichment regardless of the order you added them |
+| Shortest task first within a tier | Two high-priority tasks: the 5-min one is placed before the 30-min one |
+| Conflict warning | Add two tasks manually with the same start time → orange `st.warning` banner appears |
+| Recurring task next occurrence | After marking a daily walk complete, a new task with tomorrow's due date is appended to the pet's list |
+| Skipped task alert | Set budget to 20 min and add a 30-min task → red `st.error` alert lists it as skipped |
+
+### Sample CLI output (`python main.py`)
+
+```
+====================================================
+  TODAY'S SCHEDULE
+====================================================
+  Owner : Alex  |  Budget: 90 min per pet
+
+  Biscuit (Golden Retriever, Dog, age 3)
+  ------------------------------------------------
+    [ ] 08:00  Flea medicine            5 min  [high]
+    [ ] 08:05  Breakfast               10 min  [high] (recurring)
+    [ ] 08:15  Morning walk            30 min  [high] (recurring)
+    [ ] 08:45  Fetch session           20 min  [medium]
+    Skipped: Bath time
+    Time used: 65 / 90 min
+
+  Mochi (Tabby, Cat, age 5)
+  ------------------------------------------------
+    [ ] 08:00  Breakfast                5 min  [high] (recurring)
+    [ ] 08:05  Litter box clean        10 min  [medium] (recurring)
+    [ ] 08:15  Laser pointer play      15 min  [low]
+    Time used: 30 / 90 min
+
+====================================================
+  CONFLICT DETECTION — two tasks at the same time
+====================================================
+  Conflicts found:
+  ⚠ Conflict: 'Walk' (09:00–09:30) overlaps 'Feeding' (09:15–09:25)
+
+====================================================
+  RECURRING TASK — mark complete & auto-schedule next
+====================================================
+  Before: 'Morning walk' completed=False, due_date=None
+  After:  'Morning walk' completed=True
+  Next occurrence added → due_date=2026-06-22, completed=False
+  Biscuit now has 6 tasks (was 5)
+```

@@ -1,0 +1,71 @@
+classDiagram
+    class Task {
+        +str title
+        +str category
+        +int duration_minutes
+        +str priority
+        +bool is_recurring
+        +str frequency
+        +str start_time
+        +bool completed
+        +str due_date
+        +mark_complete() Optional~Task~
+        +is_high_priority() bool
+        +to_dict() dict
+    }
+
+    class Pet {
+        +str name
+        +str species
+        +str breed
+        +int age
+        +list tasks
+        +add_task(task: Task) None
+        +remove_task(title: str) bool
+        +get_tasks() list
+        +get_info() str
+        +summary() str
+    }
+
+    class Owner {
+        +str name
+        +int available_minutes
+        +dict preferences
+        +list pets
+        +add_pet(pet: Pet) None
+        +get_available_time() int
+        +update_preferences(prefs: dict) None
+        +get_all_tasks() list
+    }
+
+    class Scheduler {
+        +Owner owner
+        +Pet pet
+        +list tasks
+        +int available_minutes
+        +list scheduled_tasks
+        +list skipped_tasks
+        +str reasoning
+        +generate_plan() None
+        +sort_tasks(tasks: list) list
+        +sort_by_time(tasks: list) list
+        +filter_tasks(tasks: list, completed: bool) list
+        +detect_conflicts() list~str~
+        +reschedule_recurring(task: Task) Optional~Task~
+        +display_plan() None
+    }
+
+    %% helpers (module-level, not class methods)
+    class _helpers {
+        <<module>>
+        +_to_minutes(time_str: str) int
+        +_from_minutes(total: int) str
+    }
+
+    Owner "1" --> "1..*" Pet : owns
+    Pet "1" --> "0..*" Task : has
+    Scheduler --> Owner : reads budget from
+    Scheduler --> Pet : plans for
+    Scheduler --> Task : schedules / skips
+    Scheduler ..> Task : creates next occurrence via reschedule_recurring
+    Scheduler ..> _helpers : uses for time arithmetic

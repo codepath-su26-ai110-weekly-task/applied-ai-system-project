@@ -4,7 +4,7 @@ flowchart TD
     subgraph AI["AI Task Assistant (ai_intake.py)"]
         Retriever["retriever.py<br/>keyword/TF-IDF search"]
         KB[("knowledge/<br/>dog_care.md, cat_care.md,<br/>general_safety.md")]
-        LLM["Gemini gemini-2.0-flash<br/>prompt = owner text + retrieved<br/>snippets + Task JSON schema"]
+        LLM["Gemini gemini-flash-lite-latest<br/>prompt = owner text + retrieved<br/>snippets + Task JSON schema"]
         Parser["Parse and validate JSON<br/>fallback to safe defaults on<br/>malformed or out-of-range fields"]
     end
 

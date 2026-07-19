@@ -1,5 +1,11 @@
 import streamlit as st
+from dotenv import load_dotenv
+
 from pawpal_system import Owner, Pet, Task, Scheduler
+from ai_intake import parse_tasks_from_text
+from retriever import Retriever
+
+load_dotenv()
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 st.title("🐾 PawPal+")
@@ -10,6 +16,14 @@ st.caption("Your daily pet care planner — schedules tasks by priority, detects
 # ---------------------------------------------------------------------------
 if "owner" not in st.session_state:
     st.session_state.owner = None
+if "ai_result" not in st.session_state:
+    st.session_state.ai_result = None
+
+
+@st.cache_resource
+def get_retriever() -> Retriever:
+    """Build the TF-IDF retriever over knowledge/ once and reuse it across reruns."""
+    return Retriever()
 
 # ---------------------------------------------------------------------------
 # Section 1 — Owner setup
@@ -71,9 +85,85 @@ else:
 st.divider()
 
 # ---------------------------------------------------------------------------
-# Section 3 — Add tasks
+# Section 3 — AI Task Assistant (RAG: retriever + Gemini)
 # ---------------------------------------------------------------------------
-st.subheader("3. Add Tasks")
+st.subheader("3. AI Task Assistant")
+st.caption(
+    "Describe a care need in plain English. The assistant retrieves relevant "
+    "pet-care guidelines and proposes structured tasks — you approve before "
+    "anything is added."
+)
+
+if not owner or not owner.pets:
+    st.info("Add at least one pet before using the AI assistant.")
+else:
+    ai_pet_names = [p.name for p in owner.pets]
+    ai_selected_name = st.selectbox("Pet", ai_pet_names, key="ai_pet_select")
+    ai_selected_pet: Pet = next(p for p in owner.pets if p.name == ai_selected_name)
+
+    owner_text = st.text_area(
+        "What does your pet need?",
+        placeholder="e.g. Biscuit needs his heartworm meds and a bath sometime this week",
+    )
+    owner_notes = st.text_area(
+        "Optional: paste any vet notes or extra context",
+        placeholder="e.g. Vet said Biscuit's skin is sensitive, use hypoallergenic shampoo and keep baths under 20 min",
+        help="Blended into retrieval alongside the built-in care guidelines, so suggestions can reflect this pet's specific situation.",
+    )
+
+    if st.button("Suggest tasks"):
+        if not owner_text.strip():
+            st.warning("Type a request first.")
+        else:
+            with st.spinner("Retrieving guidelines and asking Gemini..."):
+                st.session_state.ai_result = parse_tasks_from_text(
+                    owner_text,
+                    species=ai_selected_pet.species.lower(),
+                    retriever=get_retriever(),
+                    owner_notes=owner_notes,
+                )
+
+    result = st.session_state.ai_result
+    if result is not None:
+        if result.error:
+            st.error(f"AI assistant could not process that request: {result.error}")
+        elif not result.proposals:
+            st.info("No tasks were proposed — the request may be unclear or out of scope.")
+        else:
+            st.write(f"**{len(result.proposals)} proposed task(s):**")
+            approved_flags = []
+            for i, proposal in enumerate(result.proposals):
+                t = proposal.task
+                recur_note = f" · repeats {t.frequency}" if t.is_recurring else ""
+                label = f"{t.title} — {t.duration_minutes} min, {t.priority} priority{recur_note}"
+                approved = st.checkbox(label, value=True, key=f"ai_proposal_{i}")
+                approved_flags.append(approved)
+                if proposal.reasoning:
+                    st.caption(f"↳ {proposal.reasoning}")
+                for warning in proposal.warnings:
+                    st.caption(f"⚠️ {warning}")
+
+            if result.snippets_used:
+                with st.expander("Guidelines used for this suggestion"):
+                    for chunk in result.snippets_used:
+                        st.markdown(f"**[{chunk.source} / {chunk.heading}]**  \n{chunk.text}")
+
+            if st.button("Add approved tasks", type="primary"):
+                added = 0
+                for approved, proposal in zip(approved_flags, result.proposals):
+                    if approved:
+                        ai_selected_pet.add_task(proposal.task)
+                        added += 1
+                st.session_state.ai_result = None
+                st.success(f"Added {added} task(s) to {ai_selected_pet.name}.")
+                st.rerun()
+
+st.divider()
+
+# ---------------------------------------------------------------------------
+# Section 4 — Add tasks manually
+# ---------------------------------------------------------------------------
+st.subheader("4. Add Tasks Manually")
 
 if not owner or not owner.pets:
     st.info("Add at least one pet before adding tasks.")
@@ -125,9 +215,9 @@ else:
 st.divider()
 
 # ---------------------------------------------------------------------------
-# Section 4 — Generate schedule
+# Section 5 — Generate schedule
 # ---------------------------------------------------------------------------
-st.subheader("4. Generate Today's Schedule")
+st.subheader("5. Generate Today's Schedule")
 
 if not owner or not owner.pets:
     st.info("Add an owner and at least one pet before generating a schedule.")

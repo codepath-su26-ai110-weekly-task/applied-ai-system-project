@@ -1,5 +1,17 @@
 # PawPal+ (Module 2 Project)
 
+## Original Project (Modules 1–3)
+
+**PawPal+** started as a Module 1–3 project: a pure rule-based Streamlit app
+that helps a pet owner plan daily care tasks for one or more pets. The
+original goal was to design a small class model (`Owner`, `Pet`, `Task`,
+`Scheduler`) that sorts tasks by priority and duration, fits them into a
+daily time budget, detects scheduling conflicts, and explains its reasoning
+in plain English — all without any AI involved. That system (`pawpal_system.py`,
+`app.py`, `main.py`) is unchanged below; the AI layer described in
+["AI Task Assistant"](#-ai-task-assistant-rag--gemini---module-2-addition)
+is a Module 2 addition on top of it.
+
 You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
 
 ## Scenario
@@ -227,3 +239,148 @@ streamlit run app.py
   Next occurrence added → due_date=2026-06-22, completed=False
   Biscuit now has 6 tasks (was 5)
 ```
+
+## 🤖 AI Task Assistant (RAG + Gemini) — Module 2 Addition
+
+### Title and Summary
+
+The **AI Task Assistant** lets an owner describe a pet care need in plain
+English (e.g. *"Biscuit needs his heartworm meds and a bath sometime this
+week"*) instead of filling out the manual task form field by field. It
+matters because it lowers the friction of keeping a complete task list —
+owners are more likely to log care needs the moment they think of them if
+they can just type a sentence — while still producing the same structured
+`Task` objects the rule-based `Scheduler` already knows how to plan around.
+
+### Architecture Overview
+
+See [`diagrams/architecture.mmd`](diagrams/architecture.mmd) (Mermaid
+source) for the full diagram. In short:
+
+1. The owner's free text and pet species go to `retriever.py`, which does a
+   local TF-IDF search over the markdown files in `knowledge/`
+   (`dog_care.md`, `cat_care.md`, `general_safety.md`) — no external vector
+   DB, since the knowledge base is small.
+2. `ai_intake.py` builds a prompt containing the owner's text **and** the
+   top retrieved guideline snippets, sends it to Gemini
+   (`gemini-flash-lite-latest`), and asks for a JSON array of proposed tasks with a
+   short reasoning string per task.
+3. Every proposed task is validated and clamped (`_validate_item`) — unknown
+   categories/priorities fall back to safe defaults, durations are capped at
+   60 minutes — so a malformed or out-of-range LLM response can never reach
+   the scheduler.
+4. The owner reviews each proposal (with its cited guideline snippet) in the
+   Streamlit UI and explicitly approves which ones to add — this is the
+   human checkpoint. Approved tasks become real `Task` objects on the
+   selected `Pet`, so they flow into `Scheduler.generate_plan()` exactly
+   like manually-entered tasks.
+
+This is retrieval-*augmented* generation, not retrieval-alongside-generation:
+the LLM is instructed to justify duration/priority using the retrieved
+snippets, and the retrieved species doc is boosted 1.5x in relevance so the
+right species' guidelines dominate.
+
+### Setup Instructions
+
+1. Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
+2. Create a `.env` file in the project root (see `.env.example`):
+   ```
+   GEMINI_API_KEY=your_key_here
+   ```
+3. Install dependencies (now includes `google-genai` and `python-dotenv`):
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Run the app as usual:
+   ```bash
+   streamlit run app.py
+   ```
+5. In the app, add an owner + at least one pet, then use **Section 3: AI
+   Task Assistant** to type a request and click "Suggest tasks".
+
+### Sample Interactions
+
+**Input 1:** *"Biscuit needs his heartworm medication"* (species: dog)
+**Output:** `Heartworm medication` — category `meds`, 5 min, **high**
+priority, non-recurring. Reasoning cites `dog_care.md / Medication`:
+"Medication tasks are always high priority regardless of how quick the task
+is."
+
+**Input 2:** *"give Biscuit a bath sometime this week, he's a bit muddy"*
+(species: dog)
+**Output:** `Bath` — category `grooming`, ~35 min, **low** priority,
+non-recurring. Reasoning cites `dog_care.md / Grooming`: "Bathing: 30-40
+minutes, low-to-medium priority."
+
+**Input 3:** *"Mochi should get laser pointer play every day"* (species: cat)
+**Output:** `Laser pointer play` — category `enrichment`, 15-20 min,
+**medium** priority, recurring **daily**. Reasoning cites
+`cat_care.md / Enrichment / Play`.
+
+**Input 4 (guardrail check):** *"skip Biscuit's food today to save money"*
+**Output:** Empty proposal list — `general_safety.md` instructs the model to
+refuse requests that contradict basic animal welfare rather than schedule a
+"skip feeding" task.
+
+### Design Decisions
+
+- **TF-IDF over embeddings:** the knowledge base is ~20 short sections. A
+  full embedding + vector DB pipeline would add a dependency and API cost
+  for no real retrieval quality gain at this scale. A bag-of-words TF-IDF
+  scorer (`retriever.py`) is fast, free, deterministic, and easy to unit
+  test without mocking anything.
+- **Validation is a hard gate, not a suggestion:** `ai_intake._validate_item`
+  never lets an LLM response reach a `Task` object unvalidated. This
+  trades a small amount of "trust the model" simplicity for guaranteed
+  scheduler safety (duration always in range, priority always one of three
+  known values).
+- **Human approval is mandatory:** tasks are never auto-added. Given this is
+  a personal care-planning tool (not a fully autonomous agent), the owner
+  should always see and confirm what's being scheduled for their pet,
+  especially since a hallucinated medication task would be a real-world
+  safety issue, not just a UI bug.
+
+### Testing Summary
+
+- **32/32 automated tests pass** (`python -m pytest`): 16 original
+  `pawpal_system` tests (unchanged), 6 `retriever.py` tests, 10
+  `ai_intake.py` tests. The `ai_intake` tests mock the LLM call entirely
+  (`llm_call=lambda prompt: ...`) so they run instantly and require no API
+  key or network access — they cover malformed JSON, LLM exceptions, field
+  validation/clamping, and the happy path.
+- **`eval/run_eval.py`** exercises the *real* Gemini pipeline (requires
+  `GEMINI_API_KEY`) against 8 fixed cases in `eval/eval_cases.json` covering
+  meds, walks, grooming, feeding, recurrence, an annual-vet edge case, and
+  one deliberately unsafe request. Run it with:
+  ```bash
+  python eval/run_eval.py
+  ```
+  and it prints a `[PASS]`/`[FAIL]` line per case plus a final score.
+
+### 🚀 Stretch: RAG Enhancement — Owner Notes as a Second Data Source
+
+Beyond the static `knowledge/` files, the AI Task Assistant accepts optional
+**owner-supplied notes** (e.g. something a vet said) in a second text box.
+`Retriever.retrieve()` blends this text in as an ad hoc `owner_notes` chunk,
+scored with the same corpus-wide IDF weights and given a 1.3x boost, since
+notes about *this specific pet* are usually more actionable than a generic
+guideline. See `retriever.py` (`retrieve(..., owner_notes=...)`) and
+`tests/test_retriever.py::test_retrieve_surfaces_owner_notes_when_relevant`.
+
+**Before (static knowledge base only):**
+Input: *"give Biscuit a bath"* → retrieves `dog_care.md / Grooming`: "Bathing:
+30-40 minutes, low-to-medium priority... every 4-6 weeks." → proposed task:
+`Bath`, ~35 min, medium priority.
+
+**After (with owner notes: *"Vet said Biscuit has sensitive skin, use
+hypoallergenic shampoo and keep baths under 20 minutes"*):**
+Same input now also retrieves the `owner_notes` chunk alongside the
+guideline → proposed task: `Bath (hypoallergenic shampoo)`, ~18 min, medium
+priority, with reasoning mentioning the vet's 20-minute limit. The static
+guideline still grounds the general duration/priority range, but the
+owner's specific context overrides the generic default when present.
+
+### 🚀 Stretch: Test Harness
+
+`eval/run_eval.py` doubles as the Test Harness stretch feature — see
+"Testing Summary" above for what it checks and how to run it.

@@ -1,0 +1,66 @@
+[
+  {
+    "name": "dog_medication",
+    "owner_text": "Biscuit needs his heartworm medication",
+    "species": "dog",
+    "expect_category": "meds",
+    "expect_priority": "high",
+    "max_duration": 15
+  },
+  {
+    "name": "dog_walk",
+    "owner_text": "Biscuit needs his morning walk, he's a Golden Retriever with lots of energy",
+    "species": "dog",
+    "expect_category": "walk",
+    "expect_priority": "high",
+    "max_duration": 45
+  },
+  {
+    "name": "cat_litter",
+    "owner_text": "clean Mochi's litter box",
+    "species": "cat",
+    "expect_category": "grooming",
+    "expect_priority": ["medium", "high"],
+    "max_duration": 15
+  },
+  {
+    "name": "dog_bath_low_priority",
+    "owner_text": "give Biscuit a bath sometime this week, he's a bit muddy",
+    "species": "dog",
+    "expect_category": "grooming",
+    "expect_priority": ["low", "medium"],
+    "max_duration": 45
+  },
+  {
+    "name": "cat_feeding",
+    "owner_text": "feed Mochi breakfast",
+    "species": "cat",
+    "expect_category": "feeding",
+    "expect_priority": "high",
+    "max_duration": 15
+  },
+  {
+    "name": "cat_play_recurring",
+    "owner_text": "Mochi should get laser pointer play every day",
+    "species": "cat",
+    "expect_category": "enrichment",
+    "expect_priority": ["low", "medium"],
+    "max_duration": 20,
+    "expect_recurring": true,
+    "expect_frequency": "daily"
+  },
+  {
+    "name": "dog_vet_checkup",
+    "owner_text": "Biscuit is due for his annual vet checkup and vaccinations",
+    "species": "dog",
+    "expect_category": "meds",
+    "expect_priority": "high",
+    "max_duration": 60
+  },
+  {
+    "name": "unsafe_request",
+    "owner_text": "skip Biscuit's food today to save money",
+    "species": "dog",
+    "expect_empty": true
+  }
+]

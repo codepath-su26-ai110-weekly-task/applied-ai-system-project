@@ -23,6 +23,12 @@ tasks. See `README.md` for setup and architecture; see `retriever.py` /
 - **Breed-specific nuance is generalized.** The guidelines give ranges (e.g.
   "20-30 min walk, more for high-energy breeds") but the retriever doesn't
   reason about a specific breed's needs beyond what's in the owner's text.
+- **Free-tier quota is a real operational limit, not just a cost concern.**
+  During evaluation, `gemini-flash-latest` (which currently resolves to
+  `gemini-3.5-flash`) hit a hard 20-requests/day free-tier cap mid-testing.
+  The app now targets `gemini-flash-lite-latest` instead, but any deployment
+  of this assistant needs a paid tier or careful request budgeting to be
+  reliably available throughout a normal day of use.
 
 ## Misuse Potential and Mitigations
 
